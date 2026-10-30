@@ -1,0 +1,18 @@
+[build]
+# Wskazuje główny plik HTML, co pozwala uprościć skrypty .ps1
+target = "www/index.html"
+# Katalog wyjściowy na skompilowane pliki WASM i skrypty JS
+dist = "dist"
+
+[watch]
+# Trunk będzie automatycznie odświeżał stronę po zmianie plików w tych folderach
+watch = ["src", "www"]
+# Ignorowane foldery, by uniknąć pętli przeładowań
+ignore = ["target", "dump", "dist", ".cargo", ".git"]
+
+[serve]
+addresses = ["127.0.0.1", "0.0.0.0"]
+port = 8080
+open = true
+tls_key_path = "ssl/192.168.1.6+2-key.pem"
+tls_cert_path = "ssl/192.168.1.6+2.pem"
