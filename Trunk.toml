@@ -14,5 +14,5 @@ ignore = ["target", "dump", "dist", ".cargo", ".git"]
 addresses = ["127.0.0.1", "0.0.0.0"]
 port = 8080
 open = true
-tls_key_path = "ssl/192.168.1.6+2-key.pem"
-tls_cert_path = "ssl/192.168.1.6+2.pem"
+tls_key_path = "key/192.168.1.6+2-key.pem"
+tls_cert_path = "key/192.168.1.6+2.pem"

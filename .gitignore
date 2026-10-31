@@ -2,6 +2,7 @@
 /.xtask/target
 /temp
 /dist
+/key
 /.changes_temp
 .xtask_history
 .xtask_last

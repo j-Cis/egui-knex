@@ -1,14 +1,27 @@
+[workspace]
+members = [
+    ".",
+    ".xtask", 
+]
+
+[workspace.package]
+edition = "2024"
+rust-version = "1.99.0"
+authors = ["Jan Roman Cisowski „j-Cis” <code@cisowscy.com>"]
+repository = "https://github.com/j-Cis/egui-knex"
+
+
 [package]
 name = "egui-knex"
 version = "0.1.0-dev.1"
-authors = ["Jan Roman Cisowski „j-Cis” <code@cisowscy.com>"]
-edition = "2024"
-rust-version = "1.99.0"
-repository = "https://github.com/j-Cis/egui-knex"
+authors.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+repository.workspace = true
 resolver = "3"
 
 [lib]
-name = "x"
+name = "egui_knex"
 crate-type = ["cdylib", "rlib"]
 
 
