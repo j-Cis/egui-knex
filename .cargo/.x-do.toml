@@ -13,7 +13,7 @@ add_fotter_customize_text = "\n---\n 🫟 \n"
 
 [snapshot.scan]
 match_patterns = [
-	"./{examples|tests|src}/**",
+	"./{examples|tests|src|.xtask}/**",
 	"./Cargo.toml",
 	"!./.xtask/target/**",
 	"!./.xtask/Cargo.lock",

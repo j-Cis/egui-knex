@@ -3,11 +3,13 @@
 /temp
 /dist
 /key
+/books
 /.changes_temp
 .xtask_history
 .xtask_last
 *.tmp
 .x-do-history.txt
+/.cargo/.x-do-history.txt
 
 # Added by cargo
 #

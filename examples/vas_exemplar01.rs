@@ -5,11 +5,16 @@
 
 pub use main_scope::{app_state, app_style, app_theme, app_words};
 
+/// Konfiguracja startu pochodzi z aplikacji — biblioteka niczego nie narzuca.
+fn config() -> egui_knex::AppConfig {
+	egui_knex::AppConfig::new("vas_exemplar01").title(app_words::Gui::APP_TITLE).inner_size((1200.0, 800.0))
+}
+
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> eframe::Result<()> { egui_knex::run_app::<self::app_state::AppState>() }
+fn main() -> egui_knex::eframe::Result<()> { egui_knex::run_app_with::<self::app_state::AppState>(config()) }
 
 #[cfg(target_arch = "wasm32")]
-fn main() { let _ = egui_knex::run_app::<self::app_state::AppState>(); }
+fn main() { let _ = egui_knex::run_app_with::<self::app_state::AppState>(config()); }
 
 mod main_scope {
 	pub mod app_words {
@@ -32,7 +37,7 @@ mod main_scope {
 	}
 
 	pub mod app_theme {
-		use eframe::egui::Color32;
+		use egui_knex::Color32;
 
 		pub const BOTTOM_BAR_HEIGHT: f32 = 40.0;
 		pub const PANEL_HEIGHT: f32 = 150.0;
@@ -59,7 +64,7 @@ mod main_scope {
 	}
 
 	pub mod app_state {
-		use eframe::egui;
+		use egui_knex::egui;
 
 		// PRAWIDŁOWO: Dodano Eq do zestawu traitów dla enuma bez danych
 		#[derive(PartialEq, Eq, Clone, Copy)]
@@ -76,8 +81,8 @@ mod main_scope {
 			fn default() -> Self { Self { mode: AppMode::Tab01 } }
 		}
 
-		impl eframe::App for AppState {
-			fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut eframe::Frame) {
+		impl egui_knex::eframe::App for AppState {
+			fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut egui_knex::eframe::Frame) {
 				// 1. Tworzymy konfigurację layoutu na bazie aktualnego stanu
 				//    aplikacji
 				let style = super::app_style::AppStyle {
@@ -131,8 +136,10 @@ mod main_scope {
 	}
 
 	pub mod app_style {
-		use eframe::egui;
-		use egui_knex::element::{Vas, VasFovea, VasRedundantia, VasSpatium};
+		use egui_knex::{
+			egui,
+			element::{Vas, VasFovea, VasRedundantia, VasSpatium},
+		};
 
 		use super::app_state::AppMode;
 
@@ -194,62 +201,28 @@ mod main_scope {
 			}
 
 			/// # Panics
-			/// Funkcja panikuje, jeśli silnik layoutu `Vas` nie zwróci
-			/// oczekiwanych indeksów foveae
-			/// (wymagane identyfikatory gniazd: 1 oraz 3).
-			#[allow(clippy::too_many_lines)] // Dozwolone w monolitycznych plikach demonstracyjnych layoutu
+			/// Panikuje, jeśli root `Vas` nie zwróci gniazd 1 (belka) i 3
+			/// (kanwa); nie są one ukrywane (`latens`), więc w tym
+			/// układzie nie dochodzi do paniki.
 			pub fn begin(&self, ui: &mut egui::Ui) -> LayoutFrame {
+				use VasSpatium::{Auto, Pixel};
+
 				self.apply_theme(ui.ctx());
 				let full_rect = ui.available_rect_before_wrap();
 
 				// =========================================================
 				// A) "VAS" główny root (Compressio - ściskanie pionowe)
 				// =========================================================
-				let vas_root = Vas {
-					axis_maior_horizontalis: false,
-					axis_maior_reversus: true,
-					redundantia_maior: VasRedundantia::Compressio,
-					padding_am_cm_at_ct_gap: (0.0, 0.0, 0.0, 0.0, 0.0),
-					foveae: Box::new([
-						VasFovea {
-							numerus: 1,
-							spatium: VasSpatium::Pixel(super::app_theme::BOTTOM_BAR_HEIGHT),
-							contractio: 0.0,
-							amplificatio: 0.0,
-							repletio: false,
-							latens: false,
-						},
-						VasFovea {
-							numerus: 2,
-							spatium: VasSpatium::Pixel(super::app_theme::PANEL_HEIGHT),
-							contractio: 1.0,
-							amplificatio: 0.0,
-							repletio: false,
-							latens: !self.show_panel,
-						},
-						VasFovea {
-							numerus: 3,
-							spatium: VasSpatium::Auto,
-							contractio: 1.0,
-							amplificatio: 1.0,
-							repletio: true,
-							latens: false,
-						},
-					]),
-				};
+				let root = Vas::verticalis(VasRedundantia::Compressio)
+					.reversus()
+					.fovea(VasFovea::pixel(1, super::app_theme::BOTTOM_BAR_HEIGHT))
+					.fovea(VasFovea::pixel(2, super::app_theme::PANEL_HEIGHT).contractio(1.0).latens(!self.show_panel))
+					.fovea(VasFovea::auto(3).contractio(1.0).amplificatio(1.0).repletio(true))
+					.resolve(full_rect);
 
-				let root_rects = vas_root.resolve(full_rect);
-
-				// Zamieniono unwrap() na expect() spełniając wymogi
-				// clippy::missing_panics_doc
-				let rect_nav = root_rects
-					.iter()
-					.find(|(n, _)| *n == 1)
-					.expect("Błąd systemu layoutu: brak gniazda belki nawigacyjnej")
-					.1;
-				let rect_panel = root_rects.iter().find(|(n, _)| *n == 2).map(|(_, r)| *r);
-				let rect_canvas =
-					root_rects.iter().find(|(n, _)| *n == 3).expect("Błąd systemu layoutu: brak gniazda kanwy").1;
+				let rect_nav = root.rect(1);
+				let rect_panel = root.get(2); // panel bywa ukryty (`latens`)
+				let rect_canvas = root.rect(3);
 
 				// =========================================================
 				// B) "VAS" Belka pozioma (Volutatio - zachowanie rozmiarów i
@@ -261,21 +234,9 @@ mod main_scope {
 					egui::Stroke::new(1.0, super::app_theme::SEPARATOR_COLOR),
 				);
 
-				let vas_nav = Vas {
-					axis_maior_horizontalis: true,
-					axis_maior_reversus: false,
-					redundantia_maior: VasRedundantia::Volutatio,
-					padding_am_cm_at_ct_gap: (10.0, 10.0, 4.0, 4.0, 8.0),
-					foveae: Box::new([
-						VasFovea { numerus: 0, spatium: VasSpatium::Auto, ..Default::default() },
-						VasFovea { numerus: 1, spatium: VasSpatium::Auto, ..Default::default() },
-						VasFovea { numerus: 2, spatium: VasSpatium::Auto, ..Default::default() },
-						VasFovea { numerus: 3, spatium: VasSpatium::Auto, ..Default::default() },
-						VasFovea { numerus: 4, spatium: VasSpatium::Pixel(30.0), ..Default::default() },
-						VasFovea { numerus: 5, spatium: VasSpatium::Pixel(30.0), ..Default::default() },
-						VasFovea { numerus: 6, spatium: VasSpatium::Pixel(20.0), ..Default::default() },
-					]),
-				};
+				let vas_nav = Vas::horizontalis(VasRedundantia::Volutatio)
+					.padding((10.0, 10.0, 4.0, 4.0, 8.0))
+					.spatia([Auto, Auto, Auto, Auto, Pixel(30.0), Pixel(30.0), Pixel(20.0)]);
 
 				let total_nav_width = vas_nav.total_content_length(rect_nav);
 				let max_scroll = (total_nav_width - rect_nav.width()).max(0.0);
@@ -296,68 +257,31 @@ mod main_scope {
 				scroll_x = scroll_x.clamp(0.0, max_scroll);
 				ui.ctx().data_mut(|d| *d.get_temp_mut_or_default::<f32>(nav_scroll_id) = scroll_x);
 
-				let mut nav_slots = Vec::new();
-				for (_, r) in vas_nav.resolve_scroll(rect_nav, scroll_x) {
-					let mut child = ui.new_child(egui::UiBuilder::new().max_rect(r));
-					child.set_clip_rect(rect_nav);
-					nav_slots.push(child);
-				}
+				let nav_slots = vas_nav.resolve_scroll(rect_nav, scroll_x).child_uis(ui, Some(rect_nav));
 
 				// =========================================================
 				// C i D) "VAS" Panel opcji (w Gnieździe 2)
 				// =========================================================
-				// POPRAWKA DLA clippy::option_if_let_else: Zastąpiono if let
-				// przez map_or_else
-				let panel_slots = rect_panel.map_or_else(
-					|| None,
-					|r_panel| {
-						ui.painter().rect_filled(r_panel, 0.0, super::app_theme::PANEL_BG);
-						ui.painter().line_segment(
-							[r_panel.left_top(), r_panel.right_top()],
-							egui::Stroke::new(1.0, super::app_theme::SEPARATOR_COLOR),
-						);
+				let panel_slots = rect_panel.map(|r_panel| {
+					ui.painter().rect_filled(r_panel, 0.0, super::app_theme::PANEL_BG);
+					ui.painter().line_segment(
+						[r_panel.left_top(), r_panel.right_top()],
+						egui::Stroke::new(1.0, super::app_theme::SEPARATOR_COLOR),
+					);
 
-						let mut slots = Vec::new();
+					let vas_panel = if self.mode == AppMode::Tab01 {
+						Vas::horizontalis(VasRedundantia::Paginatio)
+							.padding((10.0, 10.0, 10.0, 10.0, 20.0))
+							.spatia([Auto; 3])
+					} else {
+						Vas::horizontalis(VasRedundantia::Flexio)
+							.reversus()
+							.padding((10.0, 10.0, 10.0, 10.0, 20.0))
+							.spatia([Auto; 4])
+					};
+					vas_panel.resolve(r_panel).child_uis(ui, None)
+				});
 
-						if self.mode == AppMode::Tab01 {
-							let vas_calc = Vas {
-								axis_maior_horizontalis: true,
-								axis_maior_reversus: false,
-								redundantia_maior: VasRedundantia::Paginatio,
-								padding_am_cm_at_ct_gap: (10.0, 10.0, 10.0, 10.0, 20.0),
-								foveae: Box::new([
-									VasFovea { numerus: 0, spatium: VasSpatium::Auto, ..Default::default() },
-									VasFovea { numerus: 1, spatium: VasSpatium::Auto, ..Default::default() },
-									VasFovea { numerus: 2, spatium: VasSpatium::Auto, ..Default::default() },
-								]),
-							};
-							for (_, r) in vas_calc.resolve(r_panel) {
-								let mut child = ui.new_child(egui::UiBuilder::new().max_rect(r));
-								child.set_clip_rect(r);
-								slots.push(child);
-							}
-						} else {
-							let vas_anim = Vas {
-								axis_maior_horizontalis: true,
-								axis_maior_reversus: true,
-								redundantia_maior: VasRedundantia::Flexio,
-								padding_am_cm_at_ct_gap: (10.0, 10.0, 10.0, 10.0, 20.0),
-								foveae: Box::new([
-									VasFovea { numerus: 0, spatium: VasSpatium::Auto, ..Default::default() },
-									VasFovea { numerus: 1, spatium: VasSpatium::Auto, ..Default::default() },
-									VasFovea { numerus: 2, spatium: VasSpatium::Auto, ..Default::default() },
-									VasFovea { numerus: 3, spatium: VasSpatium::Auto, ..Default::default() },
-								]),
-							};
-							for (_, r) in vas_anim.resolve(r_panel) {
-								let mut child = ui.new_child(egui::UiBuilder::new().max_rect(r));
-								child.set_clip_rect(r);
-								slots.push(child);
-							}
-						}
-						Some(slots)
-					},
-				);
 				// =========================================================
 				// KANWA (w Gnieździe 3)
 				// =========================================================

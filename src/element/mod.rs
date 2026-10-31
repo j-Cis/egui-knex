@@ -2,4 +2,4 @@
 
 mod vas;
 
-pub use vas::{Vas, VasFovea, VasRedundantia, VasSpatium};
+pub use vas::{Vas, VasDispositio, VasFovea, VasRedundantia, VasSpatium};
