@@ -38,6 +38,8 @@ mod main_scope {
 			pub const WIN2_TITLE: &'static str = "Właściwości rzutu (Roll: Triangulum)";
 			pub const MODAL_TITLE: &'static str = "Okno Ostrzeżenia (CentraleObvelatum)";
 			pub const OPEN_MODAL_BTN: &'static str = "Otwórz okno modalne";
+			pub const OPEN_MODAL_FS_BTN: &'static str = "Otwórz modal na pełnym ekranie";
+			pub const MODAL_FS_TITLE: &'static str = "Modal z opcją pełnego ekranu";
 			pub const CLOSE_MODAL_BTN: &'static str = "Rozumiem, zamknij";
 			pub const NEW_CAMERA_BTN: &'static str = "📷 + Nowy wizjer osoby";
 		}
@@ -85,6 +87,7 @@ mod main_scope {
 			pub win_tools: Ora,
 			pub win_props: Ora,
 			pub modal_alert: Ora,
+			pub modal_fullscreen: Ora,
 			pub viewers: Vec<PersonViewer>,
 			pub next_viewer_id: usize,
 			pub counter: usize,
@@ -107,7 +110,21 @@ mod main_scope {
 					.magnitudo((380.0, 160.0));
 				modal_alert.claude();
 
-				Self { win_tools, win_props, modal_alert, viewers: Vec::new(), next_viewer_id: 1, counter: 0 }
+				let mut modal_fullscreen = Ora::nova("modal_fullscreen", super::app_words::Gui::MODAL_FS_TITLE)
+					.modus(OraModus::CentraleObvelatum)
+					.magnitudo((380.0, 160.0))
+					.maximabilis(true);
+				modal_fullscreen.claude();
+
+				Self {
+					win_tools,
+					win_props,
+					modal_alert,
+					modal_fullscreen,
+					viewers: Vec::new(),
+					next_viewer_id: 1,
+					counter: 0,
+				}
 			}
 		}
 
@@ -128,6 +145,10 @@ mod main_scope {
 					}
 					if ui.button(super::app_words::Gui::OPEN_MODAL_BTN).clicked() {
 						self.modal_alert.aperi();
+					}
+					if ui.button(super::app_words::Gui::OPEN_MODAL_FS_BTN).clicked() {
+						self.modal_fullscreen.maximis = true;
+						self.modal_fullscreen.aperi();
 					}
 
 					ui.separator();
@@ -185,6 +206,17 @@ mod main_scope {
 
 				if should_close == Some(true) {
 					self.modal_alert.claude();
+				}
+
+				// Okno modalne z opcją pełnego ekranu
+				let should_close_fs = self.modal_fullscreen.show(ui, |modal_ui| {
+					modal_ui.label("To okno otworzyło się na pełnym ekranie. Przycisk [▢] przełącza tryb.");
+					modal_ui.add_space(12.0);
+					modal_ui.button(super::app_words::Gui::CLOSE_MODAL_BTN).clicked()
+				});
+
+				if should_close_fs == Some(true) {
+					self.modal_fullscreen.claude();
 				}
 
 				// WIELE OKIEN WIZJERA (Dynamiczne instancje)

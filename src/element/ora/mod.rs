@@ -309,7 +309,8 @@ impl Ora {
 		} else if let Some(rect) = self.restaurandum.take() {
 			// Przywracanie: jednorazowe wymuszenie zapamiętanego prostokąta.
 			current_pos = rect.min;
-			win = win.fixed_rect(rect);
+			let h = if self.contractum { self.dim_header_btn_radius.0 } else { rect.height() };
+			win = win.fixed_rect(Rect::from_min_size(rect.min, vec2(rect.width(), h)));
 		} else if let Some(sz) = self.magnitudo_default {
 			win = win.default_size(sz);
 		}
@@ -348,6 +349,11 @@ impl Ora {
 				self.contractum = !self.contractum;
 			}
 			if action.toggle_maximize {
+				toggle_maximum = true;
+			}
+			// Zwinięcie w pełnym ekranie wychodzi z pełnego ekranu, żeby belka
+			// miała zwykły rozmiar i dało się ją przesuwać jak inne belki.
+			if action.toggle_contract && self.contractum && self.maximis {
 				toggle_maximum = true;
 			}
 			drag_delta = action.drag_delta;
@@ -425,6 +431,10 @@ impl Ora {
 						self.contractum = !self.contractum;
 					}
 					if action.toggle_maximize {
+						toggle_maximum = true;
+					}
+
+					if action.toggle_contract && self.contractum && maximum {
 						toggle_maximum = true;
 					}
 
