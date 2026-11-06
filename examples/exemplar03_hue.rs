@@ -12,14 +12,10 @@ fn config() -> egui_knex::AppConfig {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> egui_knex::eframe::Result<()> {
-	egui_knex::run_app_with::<self::app_state::AppState>(config())
-}
+fn main() -> egui_knex::eframe::Result<()> { egui_knex::run_app_with::<self::app_state::AppState>(config()) }
 
 #[cfg(target_arch = "wasm32")]
-fn main() {
-	let _ = egui_knex::run_app_with::<self::app_state::AppState>(config());
-}
+fn main() { let _ = egui_knex::run_app_with::<self::app_state::AppState>(config()); }
 
 mod main_scope {
 	pub struct MainScopeBundle;
@@ -76,9 +72,7 @@ mod main_scope {
 		}
 
 		impl Default for AppState {
-			fn default() -> Self {
-				Self { l: 0.70, c: 0.12, h: 250.0, hex_input: String::new(), hex_focused: false }
-			}
+			fn default() -> Self { Self { l: 0.70, c: 0.12, h: 250.0, hex_input: String::new(), hex_focused: false } }
 		}
 
 		impl AppState {
@@ -92,9 +86,7 @@ mod main_scope {
 			}
 		}
 
-		fn hex_string(color: Color32) -> String {
-			format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b())
-		}
+		fn hex_string(color: Color32) -> String { format!("#{:02X}{:02X}{:02X}", color.r(), color.g(), color.b()) }
 
 		/// `#rrggbb`, `rrggbb`, `#rgb` lub `rgb`; wielkość liter bez znaczenia.
 		fn parse_hex(text: &str) -> Option<Color32> {
@@ -125,12 +117,14 @@ mod main_scope {
 				let (_, current_chroma, _) = current.to_oklch();
 				let out_of_gamut = self.c - current_chroma > 0.01;
 
-				// Pole HEX pokazuje aktualny kolor, dopóki użytkownik go nie edytuje
+				// Pole HEX pokazuje aktualny kolor, dopóki użytkownik go nie
+				// edytuje
 				if !self.hex_focused {
 					self.hex_input = hex_string(current);
 				}
 
-				// Szerokość kafelka wspólna dla obu wierszy, dzięki temu oba mają tę samą długość
+				// Szerokość kafelka wspólna dla obu wierszy, dzięki temu oba
+				// mają tę samą długość
 				let tile_w = ((ui.available_width() - 27.0 * 2.0) / 28.0).max(8.0);
 
 				// 1a. Kolo odcieni: 28 kafelków w jednym wierszu
@@ -145,7 +139,8 @@ mod main_scope {
 				});
 
 				// 1b. Aktualny kolor zrzutowany na szarość: ten sam L, C = 0.
-				// Jeden klocek na długość całego rzędu 28 kafelków, o połowę ich wysokości.
+				// Jeden klocek na długość całego rzędu 28 kafelków, o połowę
+				// ich wysokości.
 				let row_w = 28.0 * tile_w + 27.0 * 2.0;
 				let gray = Color32::from_oklch(self.l, 0.0, 0.0);
 				style.swatch(ui, gray, egui::vec2(row_w, 20.0)).on_hover_text(format!("L = {:.2}, C = 0", self.l));
@@ -157,7 +152,8 @@ mod main_scope {
 					ui.spacing_mut().slider_width = 180.0;
 
 					ui.vertical(|ui| {
-						// Stała szerokość kolumny: napis nie może jej poszerzać, bo przesuwa suwaki
+						// Stała szerokość kolumny: napis nie może jej
+						// poszerzać, bo przesuwa suwaki
 						ui.set_width(LEFT_COL_W);
 
 						let (rect, _) =
@@ -183,7 +179,8 @@ mod main_scope {
 							}
 						}
 
-						// Miejsce na ostrzeżenie jest zarezerwowane zawsze (2 linie), więc layout nie skacze
+						// Miejsce na ostrzeżenie jest zarezerwowane zawsze (2
+						// linie), więc layout nie skacze
 						let warning = if out_of_gamut { Gui::OUT_OF_GAMUT } else { "" };
 						let warning_h = ui.text_style_height(&egui::TextStyle::Body) * 2.0;
 						ui.add_sized(
@@ -256,7 +253,8 @@ mod main_scope {
 				resp
 			}
 
-			/// Ramka w stylu HTML `<fieldset>` z podpisem `legend` na górnej krawędzi.
+			/// Ramka w stylu HTML `<fieldset>` z podpisem `legend` na górnej
+			/// krawędzi.
 			pub fn fieldset(&self, ui: &mut egui::Ui, legend: &str, add_contents: impl FnOnce(&mut egui::Ui)) {
 				let frame = egui::Frame::new()
 					.stroke(egui::Stroke::new(1.0, super::app_theme::BORDER))
@@ -264,7 +262,8 @@ mod main_scope {
 					.inner_margin(egui::Margin { left: 12, right: 12, top: 14, bottom: 10 });
 				let rect = frame.show(ui, add_contents).response.rect;
 
-				// Podpis wycinający w ramce: tło paneli zasłania linię pod tekstem
+				// Podpis wycinający w ramce: tło paneli zasłania linię pod
+				// tekstem
 				let galley = ui.painter().layout_no_wrap(
 					legend.to_owned(),
 					egui::FontId::proportional(13.0),

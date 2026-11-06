@@ -99,7 +99,8 @@ pub fn draw_header(ui: &mut egui::Ui, state: OraHeaderState<'_>, style: OraHeade
 				ui.add_space(4.0);
 
 				// Tytuł okna
-				// Tytuł nie jest zaznaczalny: belka służy wyłącznie do przeciągania.
+				// Tytuł nie jest zaznaczalny: belka służy wyłącznie do
+				// przeciągania.
 				ui.add(
 					egui::Label::new(egui::RichText::new(state.title).color(header_text).strong()).selectable(false),
 				);

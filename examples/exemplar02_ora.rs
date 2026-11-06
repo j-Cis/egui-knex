@@ -12,14 +12,10 @@ fn config() -> egui_knex::AppConfig {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> egui_knex::eframe::Result<()> {
-	egui_knex::run_app_with::<self::app_state::AppState>(config())
-}
+fn main() -> egui_knex::eframe::Result<()> { egui_knex::run_app_with::<self::app_state::AppState>(config()) }
 
 #[cfg(target_arch = "wasm32")]
-fn main() {
-	let _ = egui_knex::run_app_with::<self::app_state::AppState>(config());
-}
+fn main() { let _ = egui_knex::run_app_with::<self::app_state::AppState>(config()); }
 
 mod main_scope {
 	pub struct MainScopeBundle;

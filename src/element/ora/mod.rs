@@ -16,30 +16,22 @@ pub trait IntoOraId {
 
 impl IntoOraId for Id {
 	#[inline]
-	fn into_ora_id(self) -> Id {
-		self
-	}
+	fn into_ora_id(self) -> Id { self }
 }
 
 impl IntoOraId for &str {
 	#[inline]
-	fn into_ora_id(self) -> Id {
-		Id::unique(self)
-	}
+	fn into_ora_id(self) -> Id { Id::unique(self) }
 }
 
 impl IntoOraId for &String {
 	#[inline]
-	fn into_ora_id(self) -> Id {
-		Id::unique(self)
-	}
+	fn into_ora_id(self) -> Id { Id::unique(self) }
 }
 
 impl IntoOraId for String {
 	#[inline]
-	fn into_ora_id(self) -> Id {
-		Id::unique(self)
-	}
+	fn into_ora_id(self) -> Id { Id::unique(self) }
 }
 
 /// Samodzielny klocek okna pływającego i modalnego (`Ora`).
@@ -201,15 +193,9 @@ impl Ora {
 		self
 	}
 
-	pub fn aperi(&mut self) {
-		self.apertum = true;
-	}
-	pub fn claude(&mut self) {
-		self.apertum = false;
-	}
-	pub fn commuta(&mut self) {
-		self.apertum = !self.apertum;
-	}
+	pub fn aperi(&mut self) { self.apertum = true; }
+	pub fn claude(&mut self) { self.apertum = false; }
+	pub fn commuta(&mut self) { self.apertum = !self.apertum; }
 
 	/// Przełącza pełny ekran: włącza, zapamiętując poprzedni prostokąt,
 	/// albo przywraca zapamiętany stan.
@@ -227,9 +213,7 @@ impl Ora {
 	/// Zwraca `Some(R)` z wynikiem domknięcia lub `None`, gdy okno jest
 	/// zamknięte bądź zwinięte.
 	pub fn show<R, F>(&mut self, ui: &mut egui::Ui, add_contents: F) -> Option<R>
-	where
-		F: FnOnce(&mut egui::Ui) -> R,
-	{
+	where F: FnOnce(&mut egui::Ui) -> R {
 		if !self.apertum {
 			return None;
 		}
@@ -285,7 +269,8 @@ impl Ora {
 			self.magnitudo_min
 		};
 
-		// Pełny ekran obejmuje cały ekran aplikacji, a nie tylko obszar canvasu.
+		// Pełny ekran obejmuje cały ekran aplikacji, a nie tylko obszar
+		// canvasu.
 		let screen = ui.ctx().input(|i| i.raw.screen_rect.unwrap_or(Rect::EVERYTHING));
 		let limit = if self.maximis { screen } else { bounds };
 
@@ -382,9 +367,7 @@ impl Ora {
 	}
 
 	fn render_centrale<R, F>(&mut self, ui: &mut egui::Ui, screen_rect: Rect, add_contents: F) -> Option<R>
-	where
-		F: FnOnce(&mut egui::Ui) -> R,
-	{
+	where F: FnOnce(&mut egui::Ui) -> R {
 		let size = self.magnitudo_default.unwrap_or(vec2(420.0, 260.0));
 		let maximum = self.maximis;
 		let style = self.header_style();

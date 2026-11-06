@@ -3,7 +3,8 @@
 //! Przestrzenie barw Oklab i Oklch (Björn Ottosson, 2020) dla `egui::Color32`.
 //!
 //! Dwie warstwy:
-//! - funkcje `const` ([`oklab`], [`oklch`]) — użyteczne w stałych i w `const fn`,
+//! - funkcje `const` ([`oklab`], [`oklch`]) — użyteczne w stałych i w `const
+//!   fn`,
 //! - rozszerzenie [`Color32OklabExt`] — składnia `Color32::from_oklch(..)` oraz
 //!   konwersja odwrotna (`to_oklab`, `to_oklch`).
 //!
@@ -52,7 +53,8 @@ const fn pow_uint(base: f32, degree: u32) -> f32 {
 	acc
 }
 
-/// Pierwiastek `degree`-tego stopnia z `x ≥ 0`, przez bisekcję (działa w `const`).
+/// Pierwiastek `degree`-tego stopnia z `x ≥ 0`, przez bisekcję (działa w
+/// `const`).
 const fn root_of(x: f32, degree: u32) -> f32 {
 	if x <= 0.0 {
 		return 0.0;
@@ -72,7 +74,8 @@ const fn root_of(x: f32, degree: u32) -> f32 {
 	(lo + hi) * 0.5
 }
 
-/// `x^(5/12)` (czyli `x^(1/2.4)` z krzywej gamma sRGB), przez bisekcję dla `y^12 = x`.
+/// `x^(5/12)` (czyli `x^(1/2.4)` z krzywej gamma sRGB), przez bisekcję dla
+/// `y^12 = x`.
 const fn pow_five_twelfths(x: f32) -> f32 {
 	let y = root_of(x, 12);
 	let y2 = y * y;
@@ -118,9 +121,7 @@ const fn is_in_srgb_gamut(r: f32, g: f32, b: f32) -> bool {
 }
 
 /// Obcięcie liniowego sRGB do `[0, 1]` (krok „clip” z CSS).
-const fn clip_rgb(r: f32, g: f32, b: f32) -> (f32, f32, f32) {
-	(clamp01(r), clamp01(g), clamp01(b))
-}
+const fn clip_rgb(r: f32, g: f32, b: f32) -> (f32, f32, f32) { (clamp01(r), clamp01(g), clamp01(b)) }
 
 /// Odległość `ΔEok` między dwoma kolorami Oklab.
 const fn delta_eok(p: (f32, f32, f32), q: (f32, f32, f32)) -> f32 {
@@ -132,10 +133,11 @@ const fn delta_eok(p: (f32, f32, f32), q: (f32, f32, f32)) -> f32 {
 
 /// Mapowanie do gamutu sRGB algorytmem CSS Color 4 (bisekcja chromy w OkLCh).
 ///
-/// Zwraca liniowe sRGB w `[0, 1]`. Gdy kolor jest już w gamucie, zwraca go bez zmian.
-/// Gdy obcięcie jest nie do odróżnienia od oryginału (`ΔEok < 0.02`), zwraca obcięcie.
-/// W przeciwnym razie zmniejsza chromę, zachowując `L` i odcień, do najwyższej
-/// wartości, przy której kolor jest w gamucie albo różni się od obcięcia mniej niż progiem.
+/// Zwraca liniowe sRGB w `[0, 1]`. Gdy kolor jest już w gamucie, zwraca go bez
+/// zmian. Gdy obcięcie jest nie do odróżnienia od oryginału (`ΔEok < 0.02`),
+/// zwraca obcięcie. W przeciwnym razie zmniejsza chromę, zachowując `L` i
+/// odcień, do najwyższej wartości, przy której kolor jest w gamucie albo różni
+/// się od obcięcia mniej niż progiem.
 const fn map_to_gamut(l: f32, c: f32, cos_h: f32, sin_h: f32) -> (f32, f32, f32) {
 	let (r, g, b) = oklab_to_linear_srgb(l, c * cos_h, c * sin_h);
 	if is_in_srgb_gamut(r, g, b) {
@@ -271,18 +273,15 @@ pub trait Color32OklabExt: Sized {
 	/// Składowe Oklab tego koloru: `(L, a, b)`.
 	fn to_oklab(self) -> (f32, f32, f32);
 
-	/// Składowe Oklch tego koloru: `(L, C, h)`, `h` w stopniach z przedziału `[0, 360)`.
+	/// Składowe Oklch tego koloru: `(L, C, h)`, `h` w stopniach z przedziału
+	/// `[0, 360)`.
 	fn to_oklch(self) -> (f32, f32, f32);
 }
 
 impl Color32OklabExt for Color32 {
-	fn from_oklab(l: f32, a: f32, b: f32) -> Self {
-		oklab(l, a, b)
-	}
+	fn from_oklab(l: f32, a: f32, b: f32) -> Self { oklab(l, a, b) }
 
-	fn from_oklch(l: f32, c: f32, h: f32) -> Self {
-		oklch(l, c, h)
-	}
+	fn from_oklch(l: f32, c: f32, h: f32) -> Self { oklch(l, c, h) }
 
 	fn to_oklab(self) -> (f32, f32, f32) {
 		let r = srgb_to_linear(f32::from(self.r()) / 255.0);
@@ -304,7 +303,8 @@ impl Color32OklabExt for Color32 {
 		let (l, a, b) = self.to_oklab();
 		let c = a.hypot(b);
 		let mut h = b.atan2(a).to_degrees();
-		// Dodatnie przesunięcie i porównanie zamiast `rem_euclid`: dla -1e-7 `rem_euclid` daje 360.0.
+		// Dodatnie przesunięcie i porównanie zamiast `rem_euclid`: dla -1e-7
+		// `rem_euclid` daje 360.0.
 		if h < 0.0 {
 			h += 360.0;
 		}
@@ -316,9 +316,7 @@ impl Color32OklabExt for Color32 {
 }
 
 /// Odwrotność krzywej gamma sRGB (`0..1` → liniowe).
-fn srgb_to_linear(v: f32) -> f32 {
-	if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) }
-}
+fn srgb_to_linear(v: f32) -> f32 { if v <= 0.04045 { v / 12.92 } else { ((v + 0.055) / 1.055).powf(2.4) } }
 
 #[cfg(test)]
 mod tests {
@@ -375,13 +373,15 @@ mod tests {
 
 	#[test]
 	fn in_gamut_reference_teal() {
-		// Wartość referencyjna z zewnętrznego pickera Oklch: oklch(33% 0.055 195) = #033e3e.
+		// Wartość referencyjna z zewnętrznego pickera Oklch: oklch(33% 0.055
+		// 195) = #033e3e.
 		assert_rgb_close(oklch(0.33, 0.055, 195.0), (3, 62, 62), 1);
 	}
 
 	#[test]
 	fn out_of_gamut_reference_magenta() {
-		// Wartość referencyjna z zewnętrznego pickera Oklch: oklch(66% 0.35 360) = #ff008b.
+		// Wartość referencyjna z zewnętrznego pickera Oklch: oklch(66% 0.35
+		// 360) = #ff008b.
 		assert_rgb_close(oklch(0.66, 0.35, 360.0), (255, 0, 139), 3);
 	}
 
@@ -401,7 +401,8 @@ mod tests {
 
 	#[test]
 	fn to_oklch_hue_is_in_range() {
-		// Czysta czerwień ma odcień blisko 29°; wartości bliskie 0° nie mogą dać 360°.
+		// Czysta czerwień ma odcień blisko 29°; wartości bliskie 0° nie mogą
+		// dać 360°.
 		for c in [Color32::from_rgb(255, 0, 1), Color32::from_rgb(255, 0, 0), Color32::from_rgb(255, 1, 0)] {
 			let (_, _, h) = c.to_oklch();
 			assert!((0.0..360.0).contains(&h), "h = {h}");
@@ -431,7 +432,8 @@ mod tests {
 
 	#[test]
 	fn out_of_gamut_keeps_lightness_and_roughly_hue() {
-		// CSS: obcięcie kanałów może przesunąć odcień o kilka stopni; L jest zachowywane.
+		// CSS: obcięcie kanałów może przesunąć odcień o kilka stopni; L jest
+		// zachowywane.
 		let c = oklch(0.9, 0.4, 265.0);
 		let (l, _, h) = c.to_oklch();
 		assert!((l - 0.9).abs() < 0.02, "L = {l}");
