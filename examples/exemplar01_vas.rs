@@ -5,6 +5,9 @@
 
 pub use main_scope::{app_state, app_style, app_theme, app_words};
 
+// Weryfikacja spójności 4 filarów architektury na etapie kompilacji
+egui_knex::assert_exemplar_scope!(main_scope);
+
 /// Konfiguracja startu pochodzi z aplikacji — biblioteka niczego nie narzuca.
 fn config() -> egui_knex::AppConfig {
 	egui_knex::AppConfig::new("vas_exemplar01").title(app_words::Gui::APP_TITLE).inner_size((1200.0, 800.0))
@@ -17,6 +20,15 @@ fn main() -> egui_knex::eframe::Result<()> { egui_knex::run_app_with::<self::app
 fn main() { let _ = egui_knex::run_app_with::<self::app_state::AppState>(config()); }
 
 mod main_scope {
+
+	pub struct MainScopeBundle;
+	impl egui_knex::ExemplarScope for MainScopeBundle {
+		type Words = app_words::Gui;
+		type Theme = app_theme::ThemeTokens;
+		type State = app_state::AppState;
+		type Style = app_style::AppStyle;
+	}
+
 	pub mod app_words {
 		pub struct Gui;
 		impl Gui {
@@ -38,6 +50,8 @@ mod main_scope {
 
 	pub mod app_theme {
 		use egui_knex::Color32;
+
+		pub struct ThemeTokens;
 
 		pub const BOTTOM_BAR_HEIGHT: f32 = 40.0;
 		pub const PANEL_HEIGHT: f32 = 150.0;

@@ -19,16 +19,18 @@
 pub use eframe::{
 	self,
 	egui,
-	egui::{Color32, Rect, Ui},
+	egui::{Color32, Pos2, Rect, Stroke, Ui, Vec2, pos2, vec2},
 };
 
 pub mod element;
 pub mod feature;
 mod include {
 	mod egui_run_app;
+	pub mod exemplar;
 	pub use egui_run_app::{AppConfig, run_app, run_app_with, run_app_with_creator};
+	pub use exemplar::ExemplarScope;
 }
-pub use include::{AppConfig, run_app, run_app_with, run_app_with_creator};
+pub use include::{AppConfig, ExemplarScope, run_app, run_app_with, run_app_with_creator};
 
 /// Typowy zestaw importów: najczęściej używane typy `egui` oraz klocki
 /// biblioteki.
