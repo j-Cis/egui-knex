@@ -4,7 +4,7 @@ pub mod header;
 pub mod modus;
 
 pub use header::OraRollIcon;
-use header::draw_header;
+use header::{OraHeaderState, OraHeaderStyle, draw_header};
 pub use modus::OraModus;
 
 use crate::egui::{self, Align2, Color32, Frame, Id, Pos2, Rect, Sense, Vec2, pos2, vec2};
@@ -16,22 +16,30 @@ pub trait IntoOraId {
 
 impl IntoOraId for Id {
 	#[inline]
-	fn into_ora_id(self) -> Id { self }
+	fn into_ora_id(self) -> Id {
+		self
+	}
 }
 
 impl IntoOraId for &str {
 	#[inline]
-	fn into_ora_id(self) -> Id { Id::unique(self) }
+	fn into_ora_id(self) -> Id {
+		Id::unique(self)
+	}
 }
 
 impl IntoOraId for &String {
 	#[inline]
-	fn into_ora_id(self) -> Id { Id::unique(self) }
+	fn into_ora_id(self) -> Id {
+		Id::unique(self)
+	}
 }
 
 impl IntoOraId for String {
 	#[inline]
-	fn into_ora_id(self) -> Id { Id::unique(self) }
+	fn into_ora_id(self) -> Id {
+		Id::unique(self)
+	}
 }
 
 /// Samodzielny klocek okna pływającego i modalnego (`Ora`).
@@ -42,6 +50,10 @@ pub struct Ora {
 	pub modus: OraModus,
 	pub apertum: bool,
 	pub contractum: bool,
+	/// Czy okno jest aktualnie na pełnym ekranie.
+	pub maximis: bool,
+	/// Czy belka tytułowa pokazuje przycisk pełnego ekranu (opcjonalny).
+	pub maximabilis: bool,
 	pub mobilis: bool,
 	pub mutabilis: bool,
 	pub positio_default: Option<Pos2>,
@@ -62,6 +74,17 @@ pub struct Ora {
 	/// Krotka kolorów przycisku zwijania: `(normal_bg, hover_bg,
 	/// symbol_stroke)`
 	pub color_roll: (Color32, Color32, Color32),
+
+	/// Krotka kolorów przycisku pełnego ekranu: `(normal_bg, hover_bg,
+	/// symbol_stroke)`
+	pub color_maximum: (Color32, Color32, Color32),
+
+	/// Prostokąt okna sprzed pełnego ekranu (do przywrócenia).
+	rect_ante_maximum: Option<Rect>,
+	/// Ostatni znany prostokąt okna w trybie zwykłym.
+	rect_ultimus: Option<Rect>,
+	/// Jednoklatkowe wymuszenie prostokąta przy przywracaniu.
+	restaurandum: Option<Rect>,
 }
 
 impl Ora {
@@ -74,6 +97,8 @@ impl Ora {
 			modus: OraModus::Fluctuans,
 			apertum: true,
 			contractum: false,
+			maximis: false,
+			maximabilis: false,
 			mobilis: true,
 			mutabilis: true,
 			positio_default: None,
@@ -96,6 +121,14 @@ impl Ora {
 				Color32::from_rgba_unmultiplied(255, 200, 0, 120),
 				Color32::from_rgb(255, 220, 100),
 			),
+			color_maximum: (
+				Color32::from_rgba_unmultiplied(80, 160, 255, 45),
+				Color32::from_rgba_unmultiplied(80, 160, 255, 120),
+				Color32::from_rgb(150, 200, 255),
+			),
+			rect_ante_maximum: None,
+			rect_ultimus: None,
+			restaurandum: None,
 		}
 	}
 
@@ -135,6 +168,13 @@ impl Ora {
 		self
 	}
 
+	/// Włącza przycisk pełnego ekranu w belce tytułowej (domyślnie wyłączony).
+	#[must_use]
+	pub const fn maximabilis(mut self, maximabilis: bool) -> Self {
+		self.maximabilis = maximabilis;
+		self
+	}
+
 	#[must_use]
 	pub const fn geometria(mut self, dim_header_btn_radius: (f32, f32, f32)) -> Self {
 		self.dim_header_btn_radius = dim_header_btn_radius;
@@ -154,15 +194,42 @@ impl Ora {
 		self
 	}
 
-	pub fn aperi(&mut self) { self.apertum = true; }
-	pub fn claude(&mut self) { self.apertum = false; }
-	pub fn commuta(&mut self) { self.apertum = !self.apertum; }
+	/// Kolory przycisku pełnego ekranu: `(normal_bg, hover_bg, symbol_stroke)`.
+	#[must_use]
+	pub const fn colores_maximi(mut self, maximum: (Color32, Color32, Color32)) -> Self {
+		self.color_maximum = maximum;
+		self
+	}
+
+	pub fn aperi(&mut self) {
+		self.apertum = true;
+	}
+	pub fn claude(&mut self) {
+		self.apertum = false;
+	}
+	pub fn commuta(&mut self) {
+		self.apertum = !self.apertum;
+	}
+
+	/// Przełącza pełny ekran: włącza, zapamiętując poprzedni prostokąt,
+	/// albo przywraca zapamiętany stan.
+	pub fn commuta_maximum(&mut self) {
+		if self.maximis {
+			self.maximis = false;
+			self.restaurandum = self.rect_ante_maximum.take();
+		} else {
+			self.rect_ante_maximum = self.rect_ultimus;
+			self.maximis = true;
+		}
+	}
 
 	/// Renderuje okno wraz z przekazanym domknięciem zawartości.
 	/// Zwraca `Some(R)` z wynikiem domknięcia lub `None`, gdy okno jest
 	/// zamknięte bądź zwinięte.
 	pub fn show<R, F>(&mut self, ui: &mut egui::Ui, add_contents: F) -> Option<R>
-	where F: FnOnce(&mut egui::Ui) -> R {
+	where
+		F: FnOnce(&mut egui::Ui) -> R,
+	{
 		if !self.apertum {
 			return None;
 		}
@@ -218,11 +285,15 @@ impl Ora {
 			self.magnitudo_min
 		};
 
+		// Pełny ekran obejmuje cały ekran aplikacji, a nie tylko obszar canvasu.
+		let screen = ui.ctx().input(|i| i.raw.screen_rect.unwrap_or(Rect::EVERYTHING));
+		let limit = if self.maximis { screen } else { bounds };
+
 		let mut win = egui::Window::new(&self.titulus)
 			.id(self.id)
-			.constrain_to(bounds)
+			.constrain_to(limit)
 			.title_bar(false)
-			.resizable(self.mutabilis && !self.contractum)
+			.resizable(self.mutabilis && !self.contractum && !self.maximis)
 			.movable(false)
 			.frame(Frame::window(ui.style()).fill(self.color_base.1).inner_margin(0))
 			.min_size(min_size);
@@ -230,25 +301,44 @@ impl Ora {
 		if is_elevated {
 			win = win.order(egui::Order::Tooltip);
 		}
-		if let Some(sz) = self.magnitudo_default {
+
+		if self.maximis {
+			// Pełny ekran: cały ekran w obu osiach (w zwinięciu tylko belka).
+			let h = if self.contractum { self.dim_header_btn_radius.0 } else { screen.height() };
+			win = win.fixed_rect(Rect::from_min_size(screen.min, vec2(screen.width(), h)));
+		} else if let Some(rect) = self.restaurandum.take() {
+			// Przywracanie: jednorazowe wymuszenie zapamiętanego prostokąta.
+			current_pos = rect.min;
+			win = win.fixed_rect(rect);
+		} else if let Some(sz) = self.magnitudo_default {
 			win = win.default_size(sz);
 		}
 
 		let mut drag_delta = Vec2::ZERO;
 		let mut content_result = None;
+		let mut toggle_maximum = false;
+		let style = self.header_style();
 
-		win.current_pos(current_pos).show(ui.ctx(), |win_ui| {
+		let response = win.current_pos(current_pos).show(ui.ctx(), |win_ui| {
+			// Wysokość wymuszana minimalnym rozmiarem treści (samo fixed_rect
+			// nie rozciągało pionowo). Przy zwinięciu zostaje sama belka.
+			if self.maximis {
+				let h = if self.contractum { self.dim_header_btn_radius.0 } else { screen.height() };
+				win_ui.set_min_size(vec2(screen.width(), h));
+			}
+
 			let action = draw_header(
 				win_ui,
-				self.id,
-				&self.titulus,
-				self.mobilis,
-				self.contractum,
-				self.roll_icon,
-				self.dim_header_btn_radius,
-				self.color_base,
-				self.color_close,
-				self.color_roll,
+				OraHeaderState {
+					window_id: self.id,
+					title: &self.titulus,
+					is_movable: self.mobilis && !self.maximis,
+					is_contracted: self.contractum,
+					is_maximized: self.maximis,
+					maximabilis: self.maximabilis,
+					roll_icon: self.roll_icon,
+				},
+				style,
 			);
 
 			if action.close_clicked {
@@ -256,6 +346,9 @@ impl Ora {
 			}
 			if action.toggle_contract {
 				self.contractum = !self.contractum;
+			}
+			if action.toggle_maximize {
+				toggle_maximum = true;
 			}
 			drag_delta = action.drag_delta;
 
@@ -267,34 +360,62 @@ impl Ora {
 			}
 		});
 
+		if let Some(inner) = &response {
+			if !self.maximis {
+				self.rect_ultimus = Some(inner.response.rect);
+			}
+		}
+
+		if toggle_maximum {
+			self.commuta_maximum();
+		}
+
 		current_pos += drag_delta;
 		ui.data_mut(|d| d.insert_temp(pos_id, current_pos));
 		content_result
 	}
 
 	fn render_centrale<R, F>(&mut self, ui: &mut egui::Ui, screen_rect: Rect, add_contents: F) -> Option<R>
-	where F: FnOnce(&mut egui::Ui) -> R {
+	where
+		F: FnOnce(&mut egui::Ui) -> R,
+	{
 		let size = self.magnitudo_default.unwrap_or(vec2(420.0, 260.0));
+		let maximum = self.maximis;
+		let style = self.header_style();
 		let mut content_result = None;
+		let mut toggle_maximum = false;
 
-		egui::Area::new(self.id.with("centrale_body"))
-			.order(egui::Order::Tooltip)
-			.pivot(Align2::CENTER_CENTER)
-			.fixed_pos(screen_rect.center())
-			.show(ui.ctx(), |area_ui| {
-				area_ui.set_width(size.x);
+		let (pivot, pos) = if maximum {
+			(Align2::LEFT_TOP, screen_rect.min)
+		} else {
+			(Align2::CENTER_CENTER, screen_rect.center())
+		};
+
+		egui::Area::new(self.id.with("centrale_body")).order(egui::Order::Tooltip).pivot(pivot).fixed_pos(pos).show(
+			ui.ctx(),
+			|area_ui| {
+				if maximum {
+					area_ui.set_min_size(screen_rect.size());
+				} else {
+					area_ui.set_width(size.x);
+				}
 				Frame::window(area_ui.style()).fill(self.color_base.1).inner_margin(0).show(area_ui, |modal_ui| {
+					if maximum && !self.contractum {
+						modal_ui.set_min_size(screen_rect.size());
+					}
+
 					let action = draw_header(
 						modal_ui,
-						self.id,
-						&self.titulus,
-						false,
-						self.contractum,
-						self.roll_icon,
-						self.dim_header_btn_radius,
-						self.color_base,
-						self.color_close,
-						self.color_roll,
+						OraHeaderState {
+							window_id: self.id,
+							title: &self.titulus,
+							is_movable: false,
+							is_contracted: self.contractum,
+							is_maximized: maximum,
+							maximabilis: self.maximabilis,
+							roll_icon: self.roll_icon,
+						},
+						style,
 					);
 
 					if action.close_clicked {
@@ -302,6 +423,9 @@ impl Ora {
 					}
 					if action.toggle_contract {
 						self.contractum = !self.contractum;
+					}
+					if action.toggle_maximize {
+						toggle_maximum = true;
 					}
 
 					if !self.contractum {
@@ -311,8 +435,23 @@ impl Ora {
 						});
 					}
 				});
-			});
+			},
+		);
+
+		if toggle_maximum {
+			self.commuta_maximum();
+		}
 
 		content_result
+	}
+
+	fn header_style(&self) -> OraHeaderStyle {
+		OraHeaderStyle {
+			dim_header_btn_radius: self.dim_header_btn_radius,
+			color_base: self.color_base,
+			color_close: self.color_close,
+			color_roll: self.color_roll,
+			color_maximum: self.color_maximum,
+		}
 	}
 }

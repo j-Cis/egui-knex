@@ -12,10 +12,14 @@ fn config() -> egui_knex::AppConfig {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> egui_knex::eframe::Result<()> { egui_knex::run_app_with::<self::app_state::AppState>(config()) }
+fn main() -> egui_knex::eframe::Result<()> {
+	egui_knex::run_app_with::<self::app_state::AppState>(config())
+}
 
 #[cfg(target_arch = "wasm32")]
-fn main() { let _ = egui_knex::run_app_with::<self::app_state::AppState>(config()); }
+fn main() {
+	let _ = egui_knex::run_app_with::<self::app_state::AppState>(config());
+}
 
 mod main_scope {
 	pub struct MainScopeBundle;
@@ -140,7 +144,8 @@ mod main_scope {
 						let win = Ora::nova(format!("person_cam_{id}"), titulus)
 							.positio((200.0 + cascade, 140.0 + cascade))
 							.magnitudo((290.0, 175.0))
-							.roll_icon(OraRollIcon::Triangulum);
+							.roll_icon(OraRollIcon::Triangulum)
+							.maximabilis(true);
 
 						self.viewers.push(PersonViewer {
 							id_num: id,
