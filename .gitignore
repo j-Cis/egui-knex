@@ -1,5 +1,6 @@
 /target
 /.xtask/target
+
 /temp
 /dist
 /key
@@ -10,9 +11,5 @@
 *.tmp
 .x-do-history.txt
 /.cargo/.x-do-history.txt
+/Claude outputs/
 
-# Added by cargo
-#
-# already existing elements were commented out
-
-#/target
