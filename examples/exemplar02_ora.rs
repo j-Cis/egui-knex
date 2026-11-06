@@ -7,6 +7,11 @@ pub use main_scope::{app_state, app_style, app_theme, app_words};
 
 egui_knex::assert_exemplar_scope!(main_scope);
 
+// Kompilacyjna kontrola kontraktu: MainScopeBundle musi implementować
+// ExemplarScope
+const _: fn() = assert_exemplar::<main_scope::MainScopeBundle>;
+const fn assert_exemplar<S: egui_knex::ExemplarScope>() {}
+
 fn config() -> egui_knex::AppConfig {
 	egui_knex::AppConfig::new("ora_exemplar02").title(app_words::Gui::APP_TITLE).inner_size((1200.0, 800.0))
 }
@@ -124,6 +129,54 @@ mod main_scope {
 			}
 		}
 
+		impl AppState {
+			/// Rysuje wszystkie wizjery osób (dynamiczne instancje).
+			fn show_viewers(&mut self, ui: &mut egui::Ui, persons: &[(&str, &str, &str)]) {
+				for viewer in &mut self.viewers {
+					viewer.ora.show(ui, |cam_ui| {
+						cam_ui.horizontal(|ui| {
+							ui.label(egui::RichText::new(format!("Kamera #{}", viewer.id_num)).strong());
+							ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |r_ui| {
+								if r_ui.small_button("▶").on_hover_text("Następna osoba").clicked() {
+									viewer.selected_person_idx = (viewer.selected_person_idx + 1) % persons.len();
+								}
+								if r_ui.small_button("◀").on_hover_text("Poprzednia osoba").clicked() {
+									viewer.selected_person_idx =
+										viewer.selected_person_idx.checked_sub(1).unwrap_or(persons.len() - 1);
+								}
+							});
+						});
+
+						cam_ui.separator();
+
+						let (name, birth, tag) = persons[viewer.selected_person_idx];
+
+						// Karta podglądu wybranej osoby
+						cam_ui.vertical(|ui| {
+							ui.label(egui::RichText::new(format!("👤 {name}")).size(15.0).strong());
+							ui.label(egui::RichText::new(format!("📍 {birth}")).weak().size(12.0));
+							ui.add_space(4.0);
+							ui.label(
+								egui::RichText::new(format!("🏷️ {tag}")).color(egui::Color32::from_rgb(0, 180, 255)),
+							);
+						});
+
+						cam_ui.add_space(6.0);
+
+						// Rozwijany ComboBox do bezpośredniego wyboru z listy
+						egui::ComboBox::from_id_salt(format!("combo_cam_{}", viewer.id_num))
+							.selected_text(name)
+							.width(cam_ui.available_width() - 8.0)
+							.show_ui(cam_ui, |ui| {
+								for (idx, (p_name, _, _)) in persons.iter().enumerate() {
+									ui.selectable_value(&mut viewer.selected_person_idx, idx, *p_name);
+								}
+							});
+					});
+				}
+			}
+		}
+
 		impl egui_knex::eframe::App for AppState {
 			fn ui(&mut self, ui: &mut egui::Ui, _frame: &mut egui_knex::eframe::Frame) {
 				let style = super::app_style::AppStyle;
@@ -155,7 +208,7 @@ mod main_scope {
 						self.next_viewer_id += 1;
 
 						// Kaskadowe przesunięcie pozycji każdego nowego okna
-						let cascade = ((id - 1) % 8) as f32 * 25.0;
+						let cascade = f32::from(u8::try_from((id - 1) % 8).unwrap_or(0)) * 25.0;
 						let titulus = format!("Wizjer #{id}");
 
 						let win = Ora::nova(format!("person_cam_{id}"), titulus)
@@ -215,49 +268,8 @@ mod main_scope {
 					self.modal_fullscreen.claude();
 				}
 
-				// WIELE OKIEN WIZJERA (Dynamiczne instancje)
-				for viewer in &mut self.viewers {
-					viewer.ora.show(ui, |cam_ui| {
-						cam_ui.horizontal(|ui| {
-							ui.label(egui::RichText::new(format!("Kamera #{}", viewer.id_num)).strong());
-							ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |r_ui| {
-								if r_ui.small_button("▶").on_hover_text("Następna osoba").clicked() {
-									viewer.selected_person_idx = (viewer.selected_person_idx + 1) % persons.len();
-								}
-								if r_ui.small_button("◀").on_hover_text("Poprzednia osoba").clicked() {
-									viewer.selected_person_idx =
-										viewer.selected_person_idx.checked_sub(1).unwrap_or(persons.len() - 1);
-								}
-							});
-						});
-
-						cam_ui.separator();
-
-						let (name, birth, tag) = persons[viewer.selected_person_idx];
-
-						// Karta podglądu wybranej osoby
-						cam_ui.vertical(|ui| {
-							ui.label(egui::RichText::new(format!("👤 {name}")).size(15.0).strong());
-							ui.label(egui::RichText::new(format!("📍 {birth}")).weak().size(12.0));
-							ui.add_space(4.0);
-							ui.label(
-								egui::RichText::new(format!("🏷️ {tag}")).color(egui::Color32::from_rgb(0, 180, 255)),
-							);
-						});
-
-						cam_ui.add_space(6.0);
-
-						// Rozwijany ComboBox do bezpośredniego wyboru z listy
-						egui::ComboBox::from_id_salt(format!("combo_cam_{}", viewer.id_num))
-							.selected_text(name)
-							.width(cam_ui.available_width() - 8.0)
-							.show_ui(cam_ui, |ui| {
-								for (idx, (p_name, _, _)) in persons.iter().enumerate() {
-									ui.selectable_value(&mut viewer.selected_person_idx, idx, *p_name);
-								}
-							});
-					});
-				}
+				// WIELE OKIEN WIZJERA (dynamiczne instancje)
+				self.show_viewers(ui, persons);
 
 				// Automatyczne czyszczenie okien zamkniętych krzyżykiem [✕]
 				self.viewers.retain(|v| v.ora.apertum);
@@ -278,16 +290,16 @@ mod main_scope {
 				let step = 32.0;
 				let stroke = egui::Stroke::new(1.0, super::app_theme::GRID_LINE);
 
-				let mut x = rect.left();
-				while x <= rect.right() {
+				for x in
+					std::iter::successors(Some(rect.left()), |x| Some(*x + step)).take_while(|x| *x <= rect.right())
+				{
 					ui.painter().line_segment([pos2(x, rect.top()), pos2(x, rect.bottom())], stroke);
-					x += step;
 				}
 
-				let mut y = rect.top();
-				while y <= rect.bottom() {
+				for y in
+					std::iter::successors(Some(rect.top()), |y| Some(*y + step)).take_while(|y| *y <= rect.bottom())
+				{
 					ui.painter().line_segment([pos2(rect.left(), y), pos2(rect.right(), y)], stroke);
-					y += step;
 				}
 			}
 		}

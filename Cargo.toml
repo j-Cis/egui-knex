@@ -1,7 +1,7 @@
 [workspace]
 members = [
     ".",
-    ".xtask", 
+    ".xtask",
 ]
 
 [workspace.package]
@@ -13,12 +13,42 @@ repository = "https://github.com/j-Cis/egui-knex"
 
 [package]
 name = "egui-knex"
-version = "0.1.0-dev.3"
+version = "0.1.0-dev.4"
 authors.workspace = true
 edition.workspace = true
 rust-version.workspace = true
+description = "Reusable egui building blocks: Ora windows, the Vas flexbox-style layout, and Oklab/Oklch colours for egui::Color32."
+readme = "README.md"
+keywords = ["egui", "oklab", "oklch", "components"]
+categories = ["gui"]
+license = "MIT OR Apache-2.0"
 repository.workspace = true
 resolver = "3"
+
+# Paczka dla crates.io bez narzędzi repo i lokalnej konfiguracji
+include = [
+    "src/**/*",
+    "examples/**/*",
+    "Cargo.toml",
+    "Cargo.lock",
+    "README.md",
+    "LICENSE-APACHE",
+    "LICENSE-MIT",
+]
+
+[package.metadata.cargo]
+edition = "2024"
+
+[package.metadata.docs.rs]
+targets = [
+    "x86_64-pc-windows-msvc",
+    "i686-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "i686-unknown-linux-gnu",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
 
 [lib]
 name = "egui_knex"
@@ -47,3 +77,13 @@ web-sys = { version = "0.3.107", features = [
 eframe = "0.37.0"
 # `egui` jest re-eksportowane przez `eframe` (i dalej przez ten crate: `egui_knex::egui`),
 # więc osobna zależność `egui` nie jest potrzebna.
+
+
+
+[lints.rust]
+#dead_code = "allow"
+#unsafe_code = "forbid"
+
+[lints.clippy]
+#bool_comparison = "allow"
+#too_many_arguments = "allow"

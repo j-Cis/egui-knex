@@ -8,6 +8,11 @@ pub use main_scope::{app_state, app_style, app_theme, app_words};
 // Weryfikacja spójności 4 filarów architektury na etapie kompilacji
 egui_knex::assert_exemplar_scope!(main_scope);
 
+// Kompilacyjna kontrola kontraktu: MainScopeBundle musi implementować
+// ExemplarScope
+const _: fn() = assert_exemplar::<main_scope::MainScopeBundle>;
+const fn assert_exemplar<S: egui_knex::ExemplarScope>() {}
+
 /// Konfiguracja startu pochodzi z aplikacji — biblioteka niczego nie narzuca.
 fn config() -> egui_knex::AppConfig {
 	egui_knex::AppConfig::new("vas_exemplar01").title(app_words::Gui::APP_TITLE).inner_size((1200.0, 800.0))

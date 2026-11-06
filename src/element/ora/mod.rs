@@ -351,10 +351,10 @@ impl Ora {
 			}
 		});
 
-		if let Some(inner) = &response {
-			if !self.maximis {
-				self.rect_ultimus = Some(inner.response.rect);
-			}
+		if let Some(inner) = &response
+			&& !self.maximis
+		{
+			self.rect_ultimus = Some(inner.response.rect);
 		}
 
 		if toggle_maximum {

@@ -7,6 +7,11 @@ pub use main_scope::{app_state, app_style, app_theme, app_words};
 
 egui_knex::assert_exemplar_scope!(main_scope);
 
+// Kompilacyjna kontrola kontraktu: MainScopeBundle musi implementować
+// ExemplarScope
+const _: fn() = assert_exemplar::<main_scope::MainScopeBundle>;
+const fn assert_exemplar<S: egui_knex::ExemplarScope>() {}
+
 fn config() -> egui_knex::AppConfig {
 	egui_knex::AppConfig::new("hue_exemplar03").title(app_words::Gui::APP_TITLE).inner_size((1100.0, 720.0))
 }
@@ -61,6 +66,16 @@ mod main_scope {
 		/// Szerokość lewej kolumny (kwadrat, HEX, ostrzeżenie).
 		const LEFT_COL_W: f32 = 220.0;
 
+		/// Rząd kafelków tęczy: liczba, odstęp między nimi i łączny odstęp.
+		const TILE_COUNT: f32 = 28.0;
+		const TILE_GAP: f32 = 2.0;
+		const TOTAL_GAP: f32 = (TILE_COUNT - 1.0) * TILE_GAP;
+
+		/// Górna granica chromy. Wartości referencyjne (np. `oklab(0.518 0.385
+		/// -0.391)`, C ≈ 0.55) mieszczą się poniżej; suwaki `OKLab` są
+		/// w `±C_MAX`, więc żaden suwak nie ścina wartości.
+		const C_MAX: f32 = 0.6;
+
 		/// Stan demonstracji. Źródłem prawdy jest Oklch (`l`, `c`, `h`);
 		/// wartości Oklab i HEX są z niego wyliczane.
 		pub struct AppState {
@@ -79,7 +94,7 @@ mod main_scope {
 			/// Ustawia Oklch. Przy szarości (`c` ≈ 0) odcień zostaje poprzedni.
 			fn set_lch(&mut self, l: f32, c: f32, h: f32) {
 				self.l = l;
-				self.c = c;
+				self.c = c.min(C_MAX);
 				if c > 1e-4 {
 					self.h = h;
 				}
@@ -125,11 +140,11 @@ mod main_scope {
 
 				// Szerokość kafelka wspólna dla obu wierszy, dzięki temu oba
 				// mają tę samą długość
-				let tile_w = ((ui.available_width() - 27.0 * 2.0) / 28.0).max(8.0);
+				let tile_w = ((ui.available_width() - TOTAL_GAP) / TILE_COUNT).max(8.0);
 
 				// 1a. Kolo odcieni: 28 kafelków w jednym wierszu
 				ui.horizontal(|ui| {
-					ui.spacing_mut().item_spacing.x = 2.0;
+					ui.spacing_mut().item_spacing.x = TILE_GAP;
 					for k in 0..28_u8 {
 						let h = f32::from(k) * 360.0 / 28.0;
 						style
@@ -141,7 +156,7 @@ mod main_scope {
 				// 1b. Aktualny kolor zrzutowany na szarość: ten sam L, C = 0.
 				// Jeden klocek na długość całego rzędu 28 kafelków, o połowę
 				// ich wysokości.
-				let row_w = 28.0 * tile_w + 27.0 * 2.0;
+				let row_w = TILE_COUNT.mul_add(tile_w, TOTAL_GAP);
 				let gray = Color32::from_oklch(self.l, 0.0, 0.0);
 				style.swatch(ui, gray, egui::vec2(row_w, 20.0)).on_hover_text(format!("L = {:.2}, C = 0", self.l));
 
@@ -172,11 +187,11 @@ mod main_scope {
 								.font(egui::TextStyle::Monospace),
 						);
 						self.hex_focused = resp.has_focus();
-						if resp.changed() {
-							if let Some(color) = parse_hex(&self.hex_input) {
-								let (l, c, h) = color.to_oklch();
-								self.set_lch(l, c, h);
-							}
+						if resp.changed()
+							&& let Some(color) = parse_hex(&self.hex_input)
+						{
+							let (l, c, h) = color.to_oklch();
+							self.set_lch(l, c, h);
 						}
 
 						// Miejsce na ostrzeżenie jest zarezerwowane zawsze (2
@@ -194,7 +209,7 @@ mod main_scope {
 					style.fieldset(ui, Gui::LEG_OKLCH, |ui| {
 						ui.vertical(|ui| {
 							ui.add(egui::Slider::new(&mut self.l, 0.0..=1.0).text(Gui::LBL_L));
-							ui.add(egui::Slider::new(&mut self.c, 0.0..=0.4).text(Gui::LBL_C));
+							ui.add(egui::Slider::new(&mut self.c, 0.0..=C_MAX).text(Gui::LBL_C));
 							ui.add(egui::Slider::new(&mut self.h, 0.0..=360.0).text(Gui::LBL_H));
 						});
 					});
@@ -209,8 +224,8 @@ mod main_scope {
 							let mut b = self.c * rad.sin();
 
 							let mut changed = ui.add(egui::Slider::new(&mut l, 0.0..=1.0).text(Gui::LBL_L)).changed();
-							changed |= ui.add(egui::Slider::new(&mut a, -0.4..=0.4).text(Gui::LBL_A)).changed();
-							changed |= ui.add(egui::Slider::new(&mut b, -0.4..=0.4).text(Gui::LBL_B)).changed();
+							changed |= ui.add(egui::Slider::new(&mut a, -C_MAX..=C_MAX).text(Gui::LBL_A)).changed();
+							changed |= ui.add(egui::Slider::new(&mut b, -C_MAX..=C_MAX).text(Gui::LBL_B)).changed();
 
 							if changed {
 								self.set_lch(l, a.hypot(b), hue_of(a, b));
@@ -228,7 +243,7 @@ mod main_scope {
 				}
 				ui.horizontal(|ui| {
 					for k in -2_i8..=2 {
-						let h = (self.h + 30.0 * f32::from(k)).rem_euclid(360.0);
+						let h = 30.0_f32.mul_add(f32::from(k), self.h).rem_euclid(360.0);
 						style.swatch(ui, Color32::from_oklch(self.l, self.c, h), egui::vec2(56.0, 56.0));
 					}
 				});
@@ -270,7 +285,7 @@ mod main_scope {
 					super::app_theme::LEGEND,
 				);
 				let text_size = galley.size();
-				let pos = egui::pos2(rect.left() + 10.0, rect.top() - text_size.y * 0.5);
+				let pos = egui::pos2(rect.left() + 10.0, text_size.y.mul_add(-0.5, rect.top()));
 				let gap = egui::Rect::from_min_size(pos - egui::vec2(4.0, 0.0), text_size + egui::vec2(8.0, 0.0));
 				ui.painter().rect_filled(gap, 0.0, ui.visuals().panel_fill);
 				ui.painter().galley(pos, galley, super::app_theme::LEGEND);
