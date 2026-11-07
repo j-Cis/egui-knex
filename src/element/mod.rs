@@ -3,5 +3,5 @@
 mod ora;
 mod vas;
 
-pub use ora::*;
+pub use ora::{IntoOraId, Ora, OraButonStatus, OraModus, OraRollIcon};
 pub use vas::{Vas, VasDispositio, VasFovea, VasRedundantia, VasSpatium};

@@ -4,8 +4,8 @@ pub mod header;
 pub mod modus;
 
 pub use header::OraRollIcon;
-use header::{OraHeaderState, OraHeaderStyle, draw_header};
-pub use modus::OraModus;
+use header::{OraHeaderAction, OraHeaderState, OraHeaderStyle, draw_header};
+pub use modus::{OraButonStatus, OraModus};
 
 use crate::egui::{self, Align2, Color32, Frame, Id, Pos2, Rect, Sense, Vec2, pos2, vec2};
 
@@ -16,22 +16,30 @@ pub trait IntoOraId {
 
 impl IntoOraId for Id {
 	#[inline]
-	fn into_ora_id(self) -> Id { self }
+	fn into_ora_id(self) -> Id {
+		self
+	}
 }
 
 impl IntoOraId for &str {
 	#[inline]
-	fn into_ora_id(self) -> Id { Id::unique(self) }
+	fn into_ora_id(self) -> Id {
+		Id::unique(self)
+	}
 }
 
 impl IntoOraId for &String {
 	#[inline]
-	fn into_ora_id(self) -> Id { Id::unique(self) }
+	fn into_ora_id(self) -> Id {
+		Id::unique(self)
+	}
 }
 
 impl IntoOraId for String {
 	#[inline]
-	fn into_ora_id(self) -> Id { Id::unique(self) }
+	fn into_ora_id(self) -> Id {
+		Id::unique(self)
+	}
 }
 
 /// Samodzielny klocek okna pływającego i modalnego (`Ora`).
@@ -44,10 +52,15 @@ pub struct Ora {
 	pub contractum: bool,
 	/// Czy okno jest aktualnie na pełnym ekranie.
 	pub maximis: bool,
-	/// Czy belka tytułowa pokazuje przycisk pełnego ekranu (opcjonalny).
-	pub maximabilis: bool,
+	/// Czy pokazać belkę tytułową. Bez belki okno nie ma uchwytu do
+	/// przeciągania, więc nie da się go przesunąć.
+	pub titulus_visibilis: bool,
+	/// Stan przycisków belki: `(zamknij ✕, zwiń —, pełny ekran ⛶)`.
+	pub butones: (OraButonStatus, OraButonStatus, OraButonStatus),
+	/// Czy okno można przesuwać.
 	pub mobilis: bool,
-	pub mutabilis: bool,
+	/// Czy okno można zmieniać: `(szerokość, wysokość)`.
+	pub mutabilis: (bool, bool),
 	pub positio_default: Option<Pos2>,
 	pub magnitudo_default: Option<Vec2>,
 	pub magnitudo_min: Vec2,
@@ -90,9 +103,10 @@ impl Ora {
 			apertum: true,
 			contractum: false,
 			maximis: false,
-			maximabilis: false,
+			titulus_visibilis: true,
+			butones: (OraButonStatus::Visibilis, OraButonStatus::Visibilis, OraButonStatus::Occultus),
 			mobilis: true,
-			mutabilis: true,
+			mutabilis: (true, true),
 			positio_default: None,
 			magnitudo_default: Some(vec2(360.0, 240.0)),
 			magnitudo_min: vec2(200.0, 80.0),
@@ -148,22 +162,30 @@ impl Ora {
 		self
 	}
 
+	/// Czy pokazać belkę tytułową (domyślnie tak).
+	#[must_use]
+	pub const fn titulus_visibilis(mut self, visibilis: bool) -> Self {
+		self.titulus_visibilis = visibilis;
+		self
+	}
+
+	/// Stan przycisków belki: `(zamknij ✕, zwiń —, pełny ekran ⛶)`.
+	#[must_use]
+	pub const fn butones(mut self, butones: (OraButonStatus, OraButonStatus, OraButonStatus)) -> Self {
+		self.butones = butones;
+		self
+	}
+
 	#[must_use]
 	pub const fn mobilis(mut self, mobilis: bool) -> Self {
 		self.mobilis = mobilis;
 		self
 	}
 
+	/// Zmiana rozmiaru: `(szerokość, wysokość)`.
 	#[must_use]
-	pub const fn mutabilis(mut self, mutabilis: bool) -> Self {
+	pub const fn mutabilis(mut self, mutabilis: (bool, bool)) -> Self {
 		self.mutabilis = mutabilis;
-		self
-	}
-
-	/// Włącza przycisk pełnego ekranu w belce tytułowej (domyślnie wyłączony).
-	#[must_use]
-	pub const fn maximabilis(mut self, maximabilis: bool) -> Self {
-		self.maximabilis = maximabilis;
 		self
 	}
 
@@ -193,9 +215,15 @@ impl Ora {
 		self
 	}
 
-	pub fn aperi(&mut self) { self.apertum = true; }
-	pub fn claude(&mut self) { self.apertum = false; }
-	pub fn commuta(&mut self) { self.apertum = !self.apertum; }
+	pub fn aperi(&mut self) {
+		self.apertum = true;
+	}
+	pub fn claude(&mut self) {
+		self.apertum = false;
+	}
+	pub fn commuta(&mut self) {
+		self.apertum = !self.apertum;
+	}
 
 	/// Przełącza pełny ekran: włącza, zapamiętując poprzedni prostokąt,
 	/// albo przywraca zapamiętany stan.
@@ -213,7 +241,9 @@ impl Ora {
 	/// Zwraca `Some(R)` z wynikiem domknięcia lub `None`, gdy okno jest
 	/// zamknięte bądź zwinięte.
 	pub fn show<R, F>(&mut self, ui: &mut egui::Ui, add_contents: F) -> Option<R>
-	where F: FnOnce(&mut egui::Ui) -> R {
+	where
+		F: FnOnce(&mut egui::Ui) -> R,
+	{
 		if !self.apertum {
 			return None;
 		}
@@ -221,9 +251,14 @@ impl Ora {
 		let bounds = ui.max_rect();
 		let screen_rect = ui.ctx().input(|i| i.raw.screen_rect.unwrap_or(Rect::EVERYTHING));
 
+		// Mgła wokół okna także wtedy, gdy okno jest maksymalizowane
+		// z zablokowanym rozmiarem (obie osie zablokowane).
+		let size_locked = !self.mutabilis.0 && !self.mutabilis.1;
+		let fog = self.maximis && size_locked;
+
 		match self.modus {
-			OraModus::Fluctuans => self.render_fluctuans(ui, bounds, false, add_contents),
-			OraModus::FluctuansObvelatum => {
+			OraModus::Fluctuans if !fog => self.render_fluctuans(ui, bounds, false, add_contents),
+			OraModus::Fluctuans | OraModus::FluctuansObvelatum => {
 				egui::Area::new(self.id.with("obvelatum_shield"))
 					.order(egui::Order::Foreground)
 					.fixed_pos(screen_rect.min)
@@ -274,11 +309,14 @@ impl Ora {
 		let screen = ui.ctx().input(|i| i.raw.screen_rect.unwrap_or(Rect::EVERYTHING));
 		let limit = if self.maximis { screen } else { bounds };
 
+		// Zmiana rozmiaru nie działa w zwinięciu ani na pełnym ekranie.
+		let can_resize = !self.contractum && !self.maximis;
+
 		let mut win = egui::Window::new(&self.titulus)
 			.id(self.id)
 			.constrain_to(limit)
 			.title_bar(false)
-			.resizable(self.mutabilis && !self.contractum && !self.maximis)
+			.resizable(egui::Vec2b::new(self.mutabilis.0 && can_resize, self.mutabilis.1 && can_resize))
 			.movable(false)
 			.frame(Frame::window(ui.style()).fill(self.color_base.1).inner_margin(0))
 			.min_size(min_size);
@@ -313,19 +351,23 @@ impl Ora {
 				win_ui.set_min_size(vec2(screen.width(), h));
 			}
 
-			let action = draw_header(
-				win_ui,
-				OraHeaderState {
-					window_id: self.id,
-					title: &self.titulus,
-					is_movable: self.mobilis && !self.maximis,
-					is_contracted: self.contractum,
-					is_maximized: self.maximis,
-					maximabilis: self.maximabilis,
-					roll_icon: self.roll_icon,
-				},
-				style,
-			);
+			let action = if self.titulus_visibilis {
+				draw_header(
+					win_ui,
+					OraHeaderState {
+						window_id: self.id,
+						title: &self.titulus,
+						is_movable: self.mobilis && !self.maximis,
+						is_contracted: self.contractum,
+						is_maximized: self.maximis,
+						butones: self.butones,
+						roll_icon: self.roll_icon,
+					},
+					style,
+				)
+			} else {
+				OraHeaderAction::default()
+			};
 
 			if action.close_clicked {
 				self.apertum = false;
@@ -367,7 +409,9 @@ impl Ora {
 	}
 
 	fn render_centrale<R, F>(&mut self, ui: &mut egui::Ui, screen_rect: Rect, add_contents: F) -> Option<R>
-	where F: FnOnce(&mut egui::Ui) -> R {
+	where
+		F: FnOnce(&mut egui::Ui) -> R,
+	{
 		let size = self.magnitudo_default.unwrap_or(vec2(420.0, 260.0));
 		let maximum = self.maximis;
 		let style = self.header_style();
@@ -393,19 +437,23 @@ impl Ora {
 						modal_ui.set_min_size(screen_rect.size());
 					}
 
-					let action = draw_header(
-						modal_ui,
-						OraHeaderState {
-							window_id: self.id,
-							title: &self.titulus,
-							is_movable: false,
-							is_contracted: self.contractum,
-							is_maximized: maximum,
-							maximabilis: self.maximabilis,
-							roll_icon: self.roll_icon,
-						},
-						style,
-					);
+					let action = if self.titulus_visibilis {
+						draw_header(
+							modal_ui,
+							OraHeaderState {
+								window_id: self.id,
+								title: &self.titulus,
+								is_movable: false,
+								is_contracted: self.contractum,
+								is_maximized: maximum,
+								butones: self.butones,
+								roll_icon: self.roll_icon,
+							},
+							style,
+						)
+					} else {
+						OraHeaderAction::default()
+					};
 
 					if action.close_clicked {
 						self.apertum = false;
