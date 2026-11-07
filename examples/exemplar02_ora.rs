@@ -17,14 +17,10 @@ fn config() -> egui_knex::AppConfig {
 }
 
 #[cfg(not(target_arch = "wasm32"))]
-fn main() -> egui_knex::eframe::Result<()> {
-	egui_knex::run_app_with::<self::app_state::AppState>(config())
-}
+fn main() -> egui_knex::eframe::Result<()> { egui_knex::run_app_with::<self::app_state::AppState>(config()) }
 
 #[cfg(target_arch = "wasm32")]
-fn main() {
-	let _ = egui_knex::run_app_with::<self::app_state::AppState>(config());
-}
+fn main() { let _ = egui_knex::run_app_with::<self::app_state::AppState>(config()); }
 
 mod main_scope {
 	pub struct MainScopeBundle;
@@ -82,6 +78,10 @@ mod main_scope {
 			element::{Ora, OraButonStatus, OraModus, OraRollIcon},
 		};
 
+		/// Wszystkie trzy przyciski belki widoczne i aktywne.
+		const WSZYSTKIE_WIDOCZNE: (OraButonStatus, OraButonStatus, OraButonStatus) =
+			(OraButonStatus::Visibilis, OraButonStatus::Visibilis, OraButonStatus::Visibilis);
+
 		/// Samodzielna instancja dynamicznego okna podglądu (np. kamera na
 		/// osobę)
 		pub struct PersonViewer {
@@ -122,7 +122,7 @@ mod main_scope {
 				let mut modal_fullscreen = Ora::nova("modal_fullscreen", super::app_words::Gui::MODAL_FS_TITLE)
 					.modus(OraModus::CentraleObvelatum)
 					.magnitudo((380.0, 160.0))
-					.butones((OraButonStatus::Visibilis, OraButonStatus::Visibilis, OraButonStatus::Visibilis));
+					.butones(WSZYSTKIE_WIDOCZNE);
 				modal_fullscreen.claude();
 
 				let win_settings = Ora::nova("win_settings", super::app_words::Gui::SETTINGS_TITLE)
@@ -132,7 +132,7 @@ mod main_scope {
 				let win_test = Ora::nova("win_test", super::app_words::Gui::TEST_TITLE)
 					.positio((420.0, 400.0))
 					.magnitudo((340.0, 200.0))
-					.butones((OraButonStatus::Visibilis, OraButonStatus::Visibilis, OraButonStatus::Visibilis));
+					.butones(WSZYSTKIE_WIDOCZNE);
 
 				Self {
 					win_tools,
@@ -148,7 +148,8 @@ mod main_scope {
 			}
 		}
 
-		/// Jeden wiersz ustawień przycisku belki: `Occultus` / `Visibilis` / `Clausus`.
+		/// Jeden wiersz ustawień przycisku belki: `Occultus` / `Visibilis` /
+		/// `Clausus`.
 		fn butones_combo(ui: &mut egui::Ui, label: &str, value: &mut OraButonStatus) {
 			ui.horizontal(|ui| {
 				ui.label(label);
@@ -161,6 +162,135 @@ mod main_scope {
 		}
 
 		impl AppState {
+			/// Pasek górny: otwieranie okien i tworzenie wizjerów.
+			fn top_bar(&mut self, ui: &mut egui::Ui, persons: &[(&str, &str, &str)]) {
+				ui.horizontal(|ui| {
+					if ui.button("Pokaż okno narzędzi").clicked() {
+						self.win_tools.aperi();
+					}
+					if ui.button("Pokaż okno właściwości").clicked() {
+						self.win_props.aperi();
+					}
+					if ui.button("Pokaż okno testowe").clicked() {
+						self.win_test.aperi();
+					}
+					if ui.button(super::app_words::Gui::OPEN_MODAL_BTN).clicked() {
+						self.modal_alert.aperi();
+					}
+					if ui.button(super::app_words::Gui::OPEN_MODAL_FS_BTN).clicked() {
+						self.modal_fullscreen.maximis = true;
+						self.modal_fullscreen.aperi();
+					}
+
+					ui.separator();
+
+					// Tworzy nową instancję kamery / wizjera
+					if ui.button(super::app_words::Gui::NEW_CAMERA_BTN).clicked() {
+						let id = self.next_viewer_id;
+						self.next_viewer_id += 1;
+
+						// Kaskadowe przesunięcie pozycji każdego nowego okna
+						let cascade = f32::from(u8::try_from((id - 1) % 8).unwrap_or(0)) * 25.0;
+						let titulus = format!("Wizjer #{id}");
+
+						let win = Ora::nova(format!("person_cam_{id}"), titulus)
+							.positio((200.0 + cascade, 140.0 + cascade))
+							.magnitudo((290.0, 175.0))
+							.roll_icon(OraRollIcon::Triangulum)
+							.butones(WSZYSTKIE_WIDOCZNE);
+
+						self.viewers.push(PersonViewer {
+							id_num: id,
+							ora: win,
+							selected_person_idx: (id - 1) % persons.len(),
+						});
+					}
+				});
+			}
+
+			/// Okna demonstracyjne: narzędzia i właściwości.
+			fn demo_windows(&mut self, ui: &mut egui::Ui) {
+				self.win_tools.show(ui, |content_ui| {
+					content_ui.label("Przeciągaj za wolne miejsce belki obok przycisków.");
+					content_ui.add_space(8.0);
+					if content_ui.button("Inkrementuj licznik").clicked() {
+						self.counter += 1;
+					}
+					content_ui.label(format!("Wartość: {}", self.counter));
+					content_ui.separator();
+					content_ui.label("Sterowanie oknem właściwości:");
+					content_ui.checkbox(&mut self.win_props.mobilis, "Właściwości: mobilność");
+					content_ui.checkbox(&mut self.win_props.mutabilis.0, "Właściwości: szerokość");
+					content_ui.checkbox(&mut self.win_props.mutabilis.1, "Właściwości: wysokość");
+				});
+
+				self.win_props.show(ui, |content_ui| {
+					content_ui.label("To okno posiada trójkątny wskaźnik zwijania ▲ / ▼.");
+					content_ui.add_space(8.0);
+					content_ui.label(format!("Aktywne kamery podglądu: {}", self.viewers.len()));
+				});
+			}
+
+			/// Okno ustawień steruje oknem testowym na żywo.
+			fn settings_and_test(&mut self, ui: &mut egui::Ui) {
+				self.win_settings.show(ui, |settings_ui| {
+					let test = &mut self.win_test;
+
+					butones_combo(settings_ui, "Zamknij ✕", &mut test.butones.0);
+					butones_combo(settings_ui, "Zwiń —", &mut test.butones.1);
+					butones_combo(settings_ui, "Pełny ekran ⛶", &mut test.butones.2);
+					settings_ui.separator();
+
+					settings_ui.checkbox(&mut test.titulus_visibilis, "Pokaż belkę tytułową");
+					settings_ui.checkbox(&mut test.mobilis, "Można przesuwać");
+					settings_ui.checkbox(&mut test.mutabilis.0, "Można zmieniać szerokość");
+					settings_ui.checkbox(&mut test.mutabilis.1, "Można zmieniać wysokość");
+					settings_ui.separator();
+
+					egui::ComboBox::from_label("Tryb").selected_text(format!("{:?}", test.modus)).show_ui(
+						settings_ui,
+						|ui| {
+							ui.selectable_value(&mut test.modus, OraModus::Fluctuans, "Fluctuans");
+							ui.selectable_value(&mut test.modus, OraModus::FluctuansObvelatum, "FluctuansObvelatum");
+							ui.selectable_value(&mut test.modus, OraModus::CentraleObvelatum, "CentraleObvelatum");
+						},
+					);
+
+					settings_ui.label("Maksymalizacja z zablokowanym rozmiarem włącza mgłę.");
+				});
+
+				let (zwiniete, pelny_ekran, otwarte) =
+					(self.win_test.contractum, self.win_test.maximis, self.win_test.apertum);
+				self.win_test.show(ui, |test_ui| {
+					test_ui.label(format!("Zwinięte: {zwiniete}"));
+					test_ui.label(format!("Pełny ekran: {pelny_ekran}"));
+					test_ui.label(format!("Otwarte: {otwarte}"));
+				});
+			}
+
+			/// Dwa okna modalne; zamykane przyciskiem w treści.
+			fn modals(&mut self, ui: &mut egui::Ui) {
+				let should_close = self.modal_alert.show(ui, |modal_ui| {
+					modal_ui.label("To okno wycentrowało się na ekranie i zablokowało tło.");
+					modal_ui.add_space(12.0);
+					modal_ui.button(super::app_words::Gui::CLOSE_MODAL_BTN).clicked()
+				});
+
+				if should_close == Some(true) {
+					self.modal_alert.claude();
+				}
+
+				let should_close_fs = self.modal_fullscreen.show(ui, |modal_ui| {
+					modal_ui.label("To okno otworzyło się na pełnym ekranie. Przycisk [⛶] przełącza tryb.");
+					modal_ui.add_space(12.0);
+					modal_ui.button(super::app_words::Gui::CLOSE_MODAL_BTN).clicked()
+				});
+
+				if should_close_fs == Some(true) {
+					self.modal_fullscreen.claude();
+				}
+			}
+
 			/// Rysuje wszystkie wizjery osób (dynamiczne instancje).
 			fn show_viewers(&mut self, ui: &mut egui::Ui, persons: &[(&str, &str, &str)]) {
 				for viewer in &mut self.viewers {
@@ -215,131 +345,10 @@ mod main_scope {
 
 				let persons = super::app_words::Persons::LIST;
 
-				// Pasek górny
-				ui.horizontal(|ui| {
-					if ui.button("Pokaż okno narzędzi").clicked() {
-						self.win_tools.aperi();
-					}
-					if ui.button("Pokaż okno właściwości").clicked() {
-						self.win_props.aperi();
-					}
-					if ui.button("Pokaż okno testowe").clicked() {
-						self.win_test.aperi();
-					}
-					if ui.button(super::app_words::Gui::OPEN_MODAL_BTN).clicked() {
-						self.modal_alert.aperi();
-					}
-					if ui.button(super::app_words::Gui::OPEN_MODAL_FS_BTN).clicked() {
-						self.modal_fullscreen.maximis = true;
-						self.modal_fullscreen.aperi();
-					}
-
-					ui.separator();
-
-					// Tworzy nową instancję kamery / wizjera
-					if ui.button(super::app_words::Gui::NEW_CAMERA_BTN).clicked() {
-						let id = self.next_viewer_id;
-						self.next_viewer_id += 1;
-
-						// Kaskadowe przesunięcie pozycji każdego nowego okna
-						let cascade = f32::from(u8::try_from((id - 1) % 8).unwrap_or(0)) * 25.0;
-						let titulus = format!("Wizjer #{id}");
-
-						let win = Ora::nova(format!("person_cam_{id}"), titulus)
-							.positio((200.0 + cascade, 140.0 + cascade))
-							.magnitudo((290.0, 175.0))
-							.roll_icon(OraRollIcon::Triangulum)
-							.butones((OraButonStatus::Visibilis, OraButonStatus::Visibilis, OraButonStatus::Visibilis));
-
-						self.viewers.push(PersonViewer {
-							id_num: id,
-							ora: win,
-							selected_person_idx: (id - 1) % persons.len(),
-						});
-					}
-				});
-
-				// Okno 1: Narzędzia
-				self.win_tools.show(ui, |content_ui| {
-					content_ui.label("Przeciągaj za wolne miejsce belki obok przycisków.");
-					content_ui.add_space(8.0);
-					if content_ui.button("Inkrementuj licznik").clicked() {
-						self.counter += 1;
-					}
-					content_ui.label(format!("Wartość: {}", self.counter));
-					content_ui.separator();
-					content_ui.label("Sterowanie oknem właściwości:");
-					content_ui.checkbox(&mut self.win_props.mobilis, "Właściwości: mobilność");
-					content_ui.checkbox(&mut self.win_props.mutabilis.0, "Właściwości: szerokość");
-					content_ui.checkbox(&mut self.win_props.mutabilis.1, "Właściwości: wysokość");
-				});
-
-				// Okno 2: Właściwości
-				self.win_props.show(ui, |content_ui| {
-					content_ui.label("To okno posiada trójkątny wskaźnik zwijania ▲ / ▼.");
-					content_ui.add_space(8.0);
-					content_ui.label(format!("Aktywne kamery podglądu: {}", self.viewers.len()));
-				});
-
-				// Okno ustawień: steruje oknem testowym na żywo
-				self.win_settings.show(ui, |settings_ui| {
-					let test = &mut self.win_test;
-
-					butones_combo(settings_ui, "Zamknij ✕", &mut test.butones.0);
-					butones_combo(settings_ui, "Zwiń —", &mut test.butones.1);
-					butones_combo(settings_ui, "Pełny ekran ⛶", &mut test.butones.2);
-					settings_ui.separator();
-
-					settings_ui.checkbox(&mut test.titulus_visibilis, "Pokaż belkę tytułową");
-					settings_ui.checkbox(&mut test.mobilis, "Można przesuwać");
-					settings_ui.checkbox(&mut test.mutabilis.0, "Można zmieniać szerokość");
-					settings_ui.checkbox(&mut test.mutabilis.1, "Można zmieniać wysokość");
-					settings_ui.separator();
-
-					egui::ComboBox::from_label("Tryb").selected_text(format!("{:?}", test.modus)).show_ui(
-						settings_ui,
-						|ui| {
-							ui.selectable_value(&mut test.modus, OraModus::Fluctuans, "Fluctuans");
-							ui.selectable_value(&mut test.modus, OraModus::FluctuansObvelatum, "FluctuansObvelatum");
-							ui.selectable_value(&mut test.modus, OraModus::CentraleObvelatum, "CentraleObvelatum");
-						},
-					);
-
-					settings_ui.label("Maksymalizacja z zablokowanym rozmiarem włącza mgłę.");
-				});
-
-				// Okno testowe: wszystkie opcje są ustawiane z okna ustawień
-				let (zwiniete, pelny_ekran, otwarte) =
-					(self.win_test.contractum, self.win_test.maximis, self.win_test.apertum);
-				self.win_test.show(ui, |test_ui| {
-					test_ui.label(format!("Zwinięte: {zwiniete}"));
-					test_ui.label(format!("Pełny ekran: {pelny_ekran}"));
-					test_ui.label(format!("Otwarte: {otwarte}"));
-				});
-
-				// Okno modalne
-				let should_close = self.modal_alert.show(ui, |modal_ui| {
-					modal_ui.label("To okno wycentrowało się na ekranie i zablokowało tło.");
-					modal_ui.add_space(12.0);
-					modal_ui.button(super::app_words::Gui::CLOSE_MODAL_BTN).clicked()
-				});
-
-				if should_close == Some(true) {
-					self.modal_alert.claude();
-				}
-
-				// Okno modalne z opcją pełnego ekranu
-				let should_close_fs = self.modal_fullscreen.show(ui, |modal_ui| {
-					modal_ui.label("To okno otworzyło się na pełnym ekranie. Przycisk [⛶] przełącza tryb.");
-					modal_ui.add_space(12.0);
-					modal_ui.button(super::app_words::Gui::CLOSE_MODAL_BTN).clicked()
-				});
-
-				if should_close_fs == Some(true) {
-					self.modal_fullscreen.claude();
-				}
-
-				// Wizjery osób (dynamiczne instancje)
+				self.top_bar(ui, persons);
+				self.demo_windows(ui);
+				self.settings_and_test(ui);
+				self.modals(ui);
 				self.show_viewers(ui, persons);
 
 				// Automatyczne czyszczenie okien zamkniętych krzyżykiem [✕]

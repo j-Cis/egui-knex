@@ -59,7 +59,7 @@ mod main_scope {
 	}
 
 	pub mod app_state {
-		use egui_knex::{Color32, egui, feature::hue::Color32OklabExt};
+		use egui_knex::{Color32, egui, feature::Color32OklabExt};
 
 		use super::{app_style::AppStyle, app_words::Gui};
 

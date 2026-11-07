@@ -16,30 +16,22 @@ pub trait IntoOraId {
 
 impl IntoOraId for Id {
 	#[inline]
-	fn into_ora_id(self) -> Id {
-		self
-	}
+	fn into_ora_id(self) -> Id { self }
 }
 
 impl IntoOraId for &str {
 	#[inline]
-	fn into_ora_id(self) -> Id {
-		Id::unique(self)
-	}
+	fn into_ora_id(self) -> Id { Id::unique(self) }
 }
 
 impl IntoOraId for &String {
 	#[inline]
-	fn into_ora_id(self) -> Id {
-		Id::unique(self)
-	}
+	fn into_ora_id(self) -> Id { Id::unique(self) }
 }
 
 impl IntoOraId for String {
 	#[inline]
-	fn into_ora_id(self) -> Id {
-		Id::unique(self)
-	}
+	fn into_ora_id(self) -> Id { Id::unique(self) }
 }
 
 /// Samodzielny klocek okna pływającego i modalnego (`Ora`).
@@ -215,15 +207,9 @@ impl Ora {
 		self
 	}
 
-	pub fn aperi(&mut self) {
-		self.apertum = true;
-	}
-	pub fn claude(&mut self) {
-		self.apertum = false;
-	}
-	pub fn commuta(&mut self) {
-		self.apertum = !self.apertum;
-	}
+	pub fn aperi(&mut self) { self.apertum = true; }
+	pub fn claude(&mut self) { self.apertum = false; }
+	pub fn commuta(&mut self) { self.apertum = !self.apertum; }
 
 	/// Przełącza pełny ekran: włącza, zapamiętując poprzedni prostokąt,
 	/// albo przywraca zapamiętany stan.
@@ -241,9 +227,7 @@ impl Ora {
 	/// Zwraca `Some(R)` z wynikiem domknięcia lub `None`, gdy okno jest
 	/// zamknięte bądź zwinięte.
 	pub fn show<R, F>(&mut self, ui: &mut egui::Ui, add_contents: F) -> Option<R>
-	where
-		F: FnOnce(&mut egui::Ui) -> R,
-	{
+	where F: FnOnce(&mut egui::Ui) -> R {
 		if !self.apertum {
 			return None;
 		}
@@ -311,6 +295,8 @@ impl Ora {
 
 		// Zmiana rozmiaru nie działa w zwinięciu ani na pełnym ekranie.
 		let can_resize = !self.contractum && !self.maximis;
+		// Zmiana wysokości działa tylko poza zwinięciem i pełnym ekranem.
+		let resize_h = self.mutabilis.1 && can_resize;
 
 		let mut win = egui::Window::new(&self.titulus)
 			.id(self.id)
@@ -350,7 +336,13 @@ impl Ora {
 				let h = if self.contractum { self.dim_header_btn_radius.0 } else { screen.height() };
 				win_ui.set_min_size(vec2(screen.width(), h));
 			}
-
+			// egui bierze wysokość okna z treści; zmiana wysokości z
+			// przeciągania zapisuje się tylko w pamięci `Resize`.
+			// Minimalna wysokość równa dostępnej (czyli
+			// zapamiętanej) pozwala przeciąganiu zadziałać.
+			if resize_h {
+				win_ui.set_min_height(win_ui.available_height());
+			}
 			let action = if self.titulus_visibilis {
 				draw_header(
 					win_ui,
@@ -409,9 +401,7 @@ impl Ora {
 	}
 
 	fn render_centrale<R, F>(&mut self, ui: &mut egui::Ui, screen_rect: Rect, add_contents: F) -> Option<R>
-	where
-		F: FnOnce(&mut egui::Ui) -> R,
-	{
+	where F: FnOnce(&mut egui::Ui) -> R {
 		let size = self.magnitudo_default.unwrap_or(vec2(420.0, 260.0));
 		let maximum = self.maximis;
 		let style = self.header_style();

@@ -2,7 +2,20 @@
 
 use super::modus::OraButonStatus;
 use crate::egui::{
-	self, Color32, CursorIcon, Frame, Id, Margin, Painter, Rect, Sense, Stroke, StrokeKind, Vec2, pos2, vec2,
+	self,
+	Color32,
+	CursorIcon,
+	Frame,
+	Id,
+	Margin,
+	Painter,
+	Rect,
+	Sense,
+	Stroke,
+	StrokeKind,
+	Vec2,
+	pos2,
+	vec2,
 };
 
 /// Wariant graficzny kontrolki zwijania / minimalizacji okna.
